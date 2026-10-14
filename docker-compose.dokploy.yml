@@ -1,0 +1,60 @@
+# DXBMARK Cal.diy: image built from the DXBMARK fork using GitHub Actions.
+# In Dokploy: use Docker Compose (NOT Docker Stack), Compose Path ./docker-compose.dokploy.yml.
+# Add the domain using Dokploy Domains: service calcom, container port 3000, HTTPS.
+# Do not publish PostgreSQL ports or expose the service directly on the host.
+services:
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: caldiy
+      POSTGRES_USER: caldiy
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy Environment}
+    volumes:
+      - caldiy_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - db_private
+
+  calcom:
+    # This image does not exist until the new workflow succeeds.
+    # Set the resulting GitHub Container Registry package visibility to Public.
+    image: ghcr.io/dxbmark/cal-diy:main
+    pull_policy: always
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_HOST: database:5432
+      DATABASE_URL: postgresql://caldiy:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@database:5432/caldiy?schema=public
+      DATABASE_DIRECT_URL: postgresql://caldiy:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@database:5432/caldiy?schema=public
+      NEXT_PUBLIC_WEBAPP_URL: https://cal.dxbmark.com
+      NEXT_PUBLIC_WEBSITE_URL: https://cal.dxbmark.com
+      NEXT_PUBLIC_EMBED_LIB_URL: https://cal.dxbmark.com/embed/embed.js
+      NEXTAUTH_URL: https://cal.dxbmark.com
+      CALCOM_TELEMETRY_DISABLED: "1"
+      GOOGLE_LOGIN_ENABLED: "false"
+    expose:
+      - "3000"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - db_private
+      - dokploy-network
+
+volumes:
+  caldiy_postgres_data:
+
+networks:
+  db_private:
+    internal: true
+  # Created by Dokploy. Traefik uses this network to reach the web container.
+  dokploy-network:
+    external: true
