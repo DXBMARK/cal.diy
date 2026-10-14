@@ -41,7 +41,10 @@ services:
       CALCOM_TELEMETRY_DISABLED: "1"
       GOOGLE_LOGIN_ENABLED: "false"
     expose:
-      - "3000"
+      - "3000"  
+    labels:
+      - "traefik.docker.network=dokploy-network"
+    
     depends_on:
       database:
         condition: service_healthy
