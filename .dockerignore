@@ -34,3 +34,9 @@ Thumbs.db
 
 # Examples and docs
 docs
+
+# This keeps local environment files out of image build context.
+.env
+.env.*
+**/.env
+**/.env.*
